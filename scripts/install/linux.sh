@@ -56,7 +56,7 @@ DIR=$(ask "Install into which directory?" "$HOME/koetai-platform")
 REPO_CHOICE=$(ask "Clone from (github/codeberg)?" "github")
 case "$REPO_CHOICE" in
   codeberg) REPO_URL="https://codeberg.org/andrawaag/koetai-platform.git" ;;
-  *)        REPO_URL="https://github.com/Koetai/koetai-platform.git" ;;
+  *)        REPO_URL="https://github.com/gawells/koetai-ahri.git" ;;
 esac
 
 echo
