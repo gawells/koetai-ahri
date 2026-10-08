@@ -77,7 +77,7 @@ ORCID_API_URL     = "https://pub.orcid.org/v3.0"
 # Triplestore backends. A dataset's `platform` column selects one of these;
 # services/triplestore.py resolves the name to a client. Only the stores you
 # actually run need to be configured — the rest simply report as unavailable.
-QLEVER_PLATFORM_URL  = os.environ.get("QLEVER_PLATFORM_URL", "http://localhost:7030")
+QLEVER_PLATFORM_URL  = os.environ.get("QLEVER_PLATFORM_URL", "http://localhost:7027")
 FUSEKI_BASE_URL      = os.environ.get("FUSEKI_BASE_URL", "http://localhost:3030")
 FUSEKI_DATASET       = os.environ.get("FUSEKI_DATASET", "koetai")
 # Leave blank for an unsecured Fuseki. A Fuseki started with ADMIN_PASSWORD set
@@ -96,10 +96,10 @@ RDF4J_REPO           = os.environ.get("RDF4J_REPO", "koetai")
 COMUNICA_BIN         = os.environ.get("COMUNICA_BIN", "comunica-sparql")
 COMUNICA_TIMEOUT     = int(os.environ.get("COMUNICA_TIMEOUT", "120"))
 BASE_URL          = os.environ.get("BASE_URL", "https://koetai.semscape.org")
-UPLOAD_DIR        = Path(os.environ.get("UPLOAD_DIR", "/home/debian/koetai-platform/uploads"))
-DEPLOY_DIR        = Path(os.environ.get("DEPLOY_DIR", "/home/debian/qlever-sparql-deployment"))
+UPLOAD_DIR        = Path(os.environ.get("UPLOAD_DIR", "/home/gordonadmin/koetai-platform/uploads"))
+DEPLOY_DIR        = Path(os.environ.get("DEPLOY_DIR", "/home/gordonadmin/qlever-sparql-deployment"))
 RUDOF_BIN         = os.environ.get("RUDOF_BIN", "/usr/bin/rudof")
-JENA_BIN          = os.environ.get("JENA_BIN", "/home/debian/apache-jena-6.0.0/bin")
+JENA_BIN          = os.environ.get("JENA_BIN", "/home/gordonadmin/apache-jena-6.0.0/bin")
 # Interpreter used for the shape-inference and OWL-reasoning subprocesses. These
 # run out-of-process because they are slow and memory-hungry, not because they
 # need a different environment: shexer/owlrl/lightrdf are in requirements.txt, so
