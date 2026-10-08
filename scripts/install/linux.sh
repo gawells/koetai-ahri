@@ -51,7 +51,7 @@ echo "git and Docker OK."
 # ── Choices ──────────────────────────────────────────────────────────────────
 say "2/6 A few questions"
 
-DIR=$(ask "Install into which directory?" "$HOME/koetai-platform")
+DIR=$(ask "Install into which directory?" "$HOME/koetai-ahri")
 
 REPO_CHOICE=$(ask "Clone from (github/codeberg)?" "github")
 case "$REPO_CHOICE" in
