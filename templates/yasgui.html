@@ -21,6 +21,7 @@
 </style>
 {% endblock %}
 {% block content %}
+{% set is_owner = current_user.is_authenticated and current_user.id == ds.user_id %}
 <nav aria-label="breadcrumb">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="{{ url_for('dashboard.index') }}">My Datasets</a></li>
@@ -54,10 +55,58 @@ LIMIT 25{% endif %}</textarea>
   </button>
   <button class="btn btn-outline-secondary btn-sm" id="clearBtn">Clear</button>
   <button class="btn btn-outline-secondary btn-sm" id="resetBtn">Reset</button>
+  {% if is_owner %}
+  <span class="vr mx-1"></span>
+  <button class="btn btn-outline-success btn-sm d-none" id="saveBtn" title="Save the editor's query over the loaded example">
+    <i class="bi bi-save"></i> Save
+  </button>
+  <button class="btn btn-outline-success btn-sm" id="saveNewBtn" title="Save the editor's query as a new example">
+    <i class="bi bi-plus-lg"></i> Save as new
+  </button>
+  <span class="badge text-bg-light border d-none" id="editingBadge"></span>
+  {% endif %}
   <span class="text-muted small ms-auto" id="queryInfo"></span>
 </div>
 
 <div id="results-wrap"></div>
+
+{% if is_owner %}
+<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalTitle" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" id="exampleForm">
+      <div class="modal-header">
+        <h5 class="modal-title" id="exampleModalTitle">Save example</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label" for="exLabel">Label <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="exLabel" required>
+        </div>
+        <div class="mb-3" id="exSlugGroup">
+          <label class="form-label" for="exSlug">Slug <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" id="exSlug" pattern="[a-z0-9\-]+"
+                 title="Lowercase, numbers, hyphens">
+          <div class="form-text">Part of the example's IRI; it can't be changed later.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" for="exDescription">Description</label>
+          <input type="text" class="form-control" id="exDescription">
+        </div>
+        <div class="mb-1">
+          <label class="form-label" for="exKeywords">Keywords <small class="text-muted">(comma-separated)</small></label>
+          <input type="text" class="form-control" id="exKeywords">
+        </div>
+        <div class="alert alert-danger mt-3 mb-0 d-none" id="exError"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-success" id="exSubmit">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
 
 <div class="mt-4">
   <div class="d-flex align-items-center gap-2 mb-2">
@@ -72,6 +121,7 @@ LIMIT 25{% endif %}</textarea>
 {% endblock %}
 
 {% block scripts %}
+{% set is_owner = current_user.is_authenticated and current_user.id == ds.user_id %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sparql/sparql.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/hint/show-hint.min.js"></script>
@@ -104,8 +154,8 @@ editor.on('keyup', (cm, event) => {
 });
 
 document.getElementById('runBtn').addEventListener('click', runQuery);
-document.getElementById('clearBtn').addEventListener('click', () => editor.setValue(''));
-document.getElementById('resetBtn').addEventListener('click', () => editor.setValue(DEFAULT_Q));
+document.getElementById('clearBtn').addEventListener('click', () => { editor.setValue(''); setCurrentExample(null); });
+document.getElementById('resetBtn').addEventListener('click', () => { editor.setValue(DEFAULT_Q); setCurrentExample(null); });
 
 async function runQuery() {
   const btn   = document.getElementById('runBtn');
@@ -242,14 +292,32 @@ function exampleKeywords(ex) {
   return String(raw).split(',').map(k => k.trim()).filter(Boolean);
 }
 
-// Load examples
-(async () => {
+// ── Saved examples ──────────────────────────────────────────────────────────
+const EXAMPLES_URL = `/u/{{ ds.orcid_id }}/{{ ds.slug }}/examples`;
+const IS_OWNER     = {{ 'true' if is_owner else 'false' }};
+let examples       = [];
+// The example the editor's query was loaded from, if any. Save writes back
+// to it; anything that replaces the editor wholesale (Clear, Reset) forgets it.
+let currentExample = null;
+
+function setCurrentExample(ex) {
+  currentExample = ex;
+  if (!IS_OWNER) return;
+  const badge = document.getElementById('editingBadge');
+  document.getElementById('saveBtn').classList.toggle('d-none', !ex);
+  badge.classList.toggle('d-none', !ex);
+  badge.textContent = ex ? `Editing: ${ex.label}` : '';
+}
+
+async function loadExamples() {
   const el = document.getElementById('exampleList');
   try {
-    const r = await fetch(`/u/{{ ds.orcid_id }}/{{ ds.slug }}/examples/list`);
-    const examples = await r.json();
+    const r = await fetch(`${EXAMPLES_URL}/list`);
+    examples = await r.json();
     if (!examples.length) {
-      el.innerHTML = '<span class="text-muted small">No examples yet. <a href="{{ url_for("examples.list_examples", owner_orcid=ds.orcid_id, slug=ds.slug) }}">Add one.</a></span>';
+      el.innerHTML = IS_OWNER
+        ? '<span class="text-muted small">No examples yet. Write a query above and use <strong>Save as new</strong>.</span>'
+        : '<span class="text-muted small">No examples yet.</span>';
       return;
     }
     let html = '<div class="list-group list-group-flush">';
@@ -268,16 +336,105 @@ function exampleKeywords(ex) {
     });
     html += '</div>';
     el.innerHTML = html;
-    // The query is looked up by index rather than written into the markup: a
-    // SPARQL query is full of quotes and newlines, and anything carrying it
-    // through HTML has to survive both.
-    el.addEventListener('click', e => {
-      const btn = e.target.closest('button[data-example]');
-      if (!btn) return;
-      editor.setValue(examples[btn.dataset.example].query || '');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
   } catch { el.innerHTML = '<span class="text-muted small">Could not load examples.</span>'; }
+}
+
+// The query is looked up by index rather than written into the markup: a
+// SPARQL query is full of quotes and newlines, and anything carrying it
+// through HTML has to survive both. One listener, on the container, so a
+// reload of the list after a save does not add another.
+document.getElementById('exampleList').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-example]');
+  if (!btn) return;
+  const ex = examples[btn.dataset.example];
+  editor.setValue(ex.query || '');
+  setCurrentExample(ex);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
+(async () => {
+  await loadExamples();
+  // Opened from the Examples page's "Open in SPARQL editor": that query is an
+  // existing example, so Save should write back to it.
+  const wanted = new URLSearchParams(location.search).get('example');
+  if (wanted) setCurrentExample(examples.find(ex => ex.slug === wanted) || null);
 })();
+
+if (IS_OWNER) {
+  const modalEl = document.getElementById('exampleModal');
+  const modal   = new bootstrap.Modal(modalEl);
+  const $ = id => document.getElementById(id);
+  let mode = 'new';   // 'new' or 'edit'
+
+  function slugify(s) {
+    return s.toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '')
+            .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  }
+
+  function openModal(m) {
+    mode = m;
+    const ex = m === 'edit' ? currentExample : null;
+    $('exampleModalTitle').textContent = ex ? `Save “${ex.label}”` : 'Save as new example';
+    $('exLabel').value       = ex ? ex.label : '';
+    $('exDescription').value = ex ? (ex.description || '') : '';
+    $('exKeywords').value    = ex ? exampleKeywords(ex).join(', ') : '';
+    $('exSlug').value        = '';
+    $('exSlug').dataset.touched = '';
+    $('exSlug').required     = !ex;
+    $('exSlugGroup').classList.toggle('d-none', !!ex);
+    $('exError').classList.add('d-none');
+    modal.show();
+  }
+
+  // The slug follows the label until the user types in it themselves.
+  $('exLabel').addEventListener('input', () => {
+    if (mode === 'new' && !$('exSlug').dataset.touched) $('exSlug').value = slugify($('exLabel').value);
+  });
+  $('exSlug').addEventListener('input', () => { $('exSlug').dataset.touched = '1'; });
+  modalEl.addEventListener('shown.bs.modal', () => $('exLabel').focus());
+
+  $('saveBtn').addEventListener('click', () => currentExample && openModal('edit'));
+  $('saveNewBtn').addEventListener('click', () => openModal('new'));
+
+  $('exampleForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const query = editor.getValue();
+    const err = $('exError');
+    if (!query.trim()) {
+      err.textContent = 'The editor is empty — there is no query to save.';
+      err.classList.remove('d-none');
+      return;
+    }
+    const body = {
+      label:       $('exLabel').value,
+      description: $('exDescription').value,
+      keywords:    $('exKeywords').value,
+      query,
+    };
+    let url = `${EXAMPLES_URL}/new`;
+    if (mode === 'edit') url = `${EXAMPLES_URL}/${encodeURIComponent(currentExample.slug)}/edit`;
+    else body.slug = $('exSlug').value;
+
+    $('exSubmit').disabled = true;
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({ message: `HTTP ${r.status}` }));
+      if (!r.ok || !d.success) throw new Error(d.message || `HTTP ${r.status}`);
+      modal.hide();
+      await loadExamples();
+      setCurrentExample(examples.find(ex => ex.slug === d.example_slug) || null);
+      document.getElementById('queryInfo').textContent = d.message;
+    } catch (ex) {
+      err.textContent = ex.message;
+      err.classList.remove('d-none');
+    } finally {
+      $('exSubmit').disabled = false;
+    }
+  });
+}
 </script>
 {% endblock %}

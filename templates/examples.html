@@ -42,11 +42,15 @@
         <button class="btn btn-sm btn-primary" onclick="runExample('{{ ex.slug }}', {{ ex.id }})">
           <i class="bi bi-play-fill"></i> Run
         </button>
-        <a href="{{ url_for('datasets.sparql_endpoint', owner_orcid=ds.orcid_id, slug=ds.slug) }}?query={{ ex.query | urlencode }}"
+        <a href="{{ url_for('datasets.sparql_endpoint', owner_orcid=ds.orcid_id, slug=ds.slug) }}?query={{ ex.query | urlencode }}&amp;example={{ ex.slug | urlencode }}"
            class="btn btn-sm btn-outline-secondary">
           <i class="bi bi-box-arrow-up-right"></i> Open in SPARQL editor
         </a>
         {% if current_user.is_authenticated and current_user.id == ds.user_id %}
+        <a href="{{ url_for('examples.edit_example', owner_orcid=ds.orcid_id, slug=ds.slug, ex_slug=ex.slug) }}"
+           class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-pencil"></i> Edit
+        </a>
         <button class="btn btn-sm btn-outline-danger ms-auto" onclick="deleteExample('{{ ex.slug }}')">
           <i class="bi bi-trash"></i>
         </button>
@@ -112,7 +116,12 @@ function esc(s) {
 
 async function deleteExample(exSlug) {
   if (!confirm('Delete this example?')) return;
-  await fetch(`/u/${OWNER}/${SLUG}/examples/${exSlug}/delete`, {method:'POST'});
+  const r = await fetch(`/u/${OWNER}/${SLUG}/examples/${encodeURIComponent(exSlug)}/delete`, {method:'POST'});
+  if (!r.ok) {
+    const d = await r.json().catch(() => ({}));
+    alert(d.error || `Delete failed (HTTP ${r.status}).`);
+    return;
+  }
   location.reload();
 }
 </script>

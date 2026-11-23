@@ -19,9 +19,15 @@
         </div>
         <div class="col-md-4 mb-3">
           <label class="form-label">Slug <span class="text-danger">*</span></label>
+          {% if example %}
+          {# The slug is the end of the example's IRI, so it is fixed once saved. #}
+          <input type="text" class="form-control" value="{{ example.slug }}" readonly disabled>
+          <div class="form-text">Part of the example's IRI, so it can't be changed.</div>
+          {% else %}
           <input type="text" name="slug" class="form-control" required
-                 value="{{ example.slug if example else '' }}"
+                 value=""
                  pattern="[a-z0-9\-]+" title="Lowercase, numbers, hyphens">
+          {% endif %}
         </div>
       </div>
       <div class="mb-3">
